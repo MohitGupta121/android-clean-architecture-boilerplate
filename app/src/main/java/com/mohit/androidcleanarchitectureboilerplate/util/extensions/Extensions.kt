@@ -1,0 +1,118 @@
+package com.mohit.androidcleanarchitectureboilerplate.util.extensions
+
+import android.app.Activity
+import android.content.Intent
+import androidx.annotation.DrawableRes
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.fragment.app.Fragment
+import com.mohit.androidcleanarchitectureboilerplate.R
+import com.mohit.androidcleanarchitectureboilerplate.data.local.models.FileType
+import com.mohit.androidcleanarchitectureboilerplate.data.local.models.StorageItem
+import com.mohit.androidcleanarchitectureboilerplate.databinding.ActionBarBinding
+import com.mohit.androidcleanarchitectureboilerplate.util.Constants
+import com.mohit.androidcleanarchitectureboilerplate.util.Secrets.BASE_URL
+import com.permissionx.guolindev.PermissionX
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+
+
+// Function to navigate to another activity
+fun Activity.navigate(destination: Class<*>, finishOff: Boolean = false) {
+    Intent(this, destination).also {
+        startActivity(it)
+        if (finishOff) finish()
+    }
+}
+
+// Function to ask for storage permissions
+suspend fun Fragment.askStoragePermission() = suspendCoroutine {
+    PermissionX.init(this)
+        .permissions(Constants.filePermissions)
+        .onExplainRequestReason { scope, deniedList ->
+            scope.showRequestReasonDialog(
+                deniedList,
+                getString(R.string.rationale_message),
+                getString(R.string.ok),
+                getString(R.string.cancel)
+            )
+        }
+        .onForwardToSettings { scope, deniedList ->
+            scope.showForwardToSettingsDialog(
+                deniedList,
+                getString(R.string.permission_settings_message),
+                getString(R.string.ok),
+                getString(R.string.cancel)
+            )
+        }
+        .request { allGranted, grantedList, deniedList ->
+            it.resume(allGranted)
+        }
+}
+
+// Function to show get datastore value
+fun <T> DataStore<Preferences>.get(
+    key: Preferences.Key<T>,
+    defaultValue: T
+): T = runBlocking {
+    data.first()[key] ?: defaultValue
+}
+
+// Function to show set datastore value
+fun <T> DataStore<Preferences>.set(
+    key: Preferences.Key<T>,
+    value: T?
+) = runBlocking<Unit> {
+    edit {
+        if (value == null) {
+            it.remove(key)
+        } else {
+            it[key] = value
+        }
+    }
+}
+
+fun ActionBarBinding.setupActionBar(
+    title: String,
+    backButtonEnabled: Boolean = false,
+    backButtonOnClickListener: () -> Unit = {},
+    showMenuButton: Boolean = false,
+    @DrawableRes menuButtonIcon: Int = R.drawable.ic_grid,
+    menuButtonOnClickListener: () -> Unit = {}
+) {
+    tvActionBarTitle.text = title
+    btnBack.isVisible = backButtonEnabled
+    btnBack.singleClick(backButtonOnClickListener)
+    btnMenuItem.isVisible = showMenuButton
+    btnMenuItem.setImageResource(menuButtonIcon)
+    btnMenuItem.singleClick(menuButtonOnClickListener)
+
+}
+
+fun String.getFileType() = when {
+    startsWith("image") -> FileType.Image
+    startsWith("video") -> FileType.Video
+    startsWith("audio") -> FileType.Audio
+    startsWith("document") -> FileType.Document
+    else -> FileType.File
+}
+
+fun String.asJwt() = "Bearer $this"
+
+fun String.toFileViewUrl() = BASE_URL + "documents/file/$this"
+
+fun Fragment.onBackPress(onBackPress: () -> Unit) {
+    requireActivity().onBackPressedDispatcher.addCallback(this) {
+        onBackPress()
+    }
+}
+
+
+fun List<StorageItem>.sortStorageItems(): List<StorageItem> {
+    val folders = filterIsInstance(StorageItem.Folder::class.java)
+    val files = filterIsInstance(StorageItem.File::class.java)
+    return folders + files
+}
+
+fun Float.MbToBytes() = this * 1024 * 1024
