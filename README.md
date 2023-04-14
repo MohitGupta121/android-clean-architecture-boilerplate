@@ -12,4 +12,4 @@ Stack:
 - [Flow](https://developer.android.com/kotlin/flow)
 
 ### Created & Maintained By
-Mohit Gupta [@mohitgupta121](https://github.com/mohigupta121)
+Mohit Gupta [@mohitgupta121](https://github.com/mohitgupta121)
